@@ -1,86 +1,110 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, memo } from "react";
 
-// ─── DATABASE — 684 parole italiane certe, 5 lettere ─────────────────────────
-const WORDLE_POOL = [
-  "ABETE","ABITO","ABUSO","ACETO","ACIDO","ACQUA","AGILE","AGIRE","AGLIO","AIUTO",
-  "ALITO","ALONE","ALTRO","AMARO","AMBRA","AMICO","AMORE","AMPIA","AMPIO","ANIMA",
-  "ANSIA","APICE","APNEA","ARABO","ARARE","ARENA","ARIDO","ARNIA","AROMA","ARSO",
-  "ARTE","ASINO","ASPRO","ASTRO","ATOMO","AUDIO","AVERE","AVIDO","BABBO","BACIO",
-  "BAGNO","BALDO","BALLA","BALZO","BANCO","BANDA","BANDO","BARBA","BARCA","BARDO",
-  "BASSO","BASTO","BAULE","BEFFA","BELLO","BELVA","BIECO","BINGO","BIRBO","BIRRA",
-  "BOCCA","BOCCE","BOLLA","BOMBA","BONGO","BORDO","BORSA","BOSCO","BOSSO","BRACA",
-  "BRAMA","BRANO","BRAVO","BREVE","BRINA","BRODO","BRUNA","BULBO","BULLO","BUONO",
-  "BURLA","BUSTO","CACCA","CACTO","CALCE","CALDO","CALMA","CALMO","CALVO","CALZA",
-  "CAMPO","CANOA","CANTO","CAPPA","CAPRA","CAPRO","CARMA","CARPA","CARRO","CARSO",
-  "CARTA","CASCO","CASSA","CASTA","CASTO","CAUSA","CAVIA","CEDRO","CELLA","CENNO",
-  "CENSO","CEPPO","CERCO","CERTO","CERVO","CESTA","CESTO","CHINA","CIGNO","CIPPO",
-  "CIRCA","CIRCO","CLAVA","CLERO","CLIMA","CLONE","CLORO","COBRA","COCCO","COFFA",
-  "COLLA","COLLO","COLMO","COLPA","COLPO","COLTO","CONCA","CONTA","CONTE","COPIA",
-  "COPPA","CORDA","CORNO","CORPO","CORSA","CORTE","CORVO","COSCA","COSMO","COSTA",
-  "COSTO","COZZO","CREMA","CROCE","CRUDO","CUNEO","CUORE","CURDO","CURVA","DAINO",
-  "DANNO","DANZA","DARDO","DENSO","DENTE","DETTO","DISCO","DITTA","DOCCE","DOGMA",
-  "DOLCE","DONNA","DORSO","DOSSO","DOTTO","DRAGO","DROGA","DUOMO","EBANO","EBETE",
-  "EDEMA","EDERA","EGIDA","ELICA","EMPIO","EMULO","ENTRO","EPICA","EPOCA","ERNIA",
-  "ERODE","EROSO","ESAME","ESITO","ESODO","ESTRO","ETERE","ETICA","ETILE","ETNIA",
-  "EVASO","EVOCA","FALCO","FALDA","FALLO","FALSA","FANGO","FARRO","FARSA","FATTO",
-  "FERMA","FERMO","FERRO","FESTA","FETTA","FIABA","FIATO","FIBRA","FIENO","FIERO",
-  "FIORE","FISSO","FIUME","FLEBO","FLORA","FOBIA","FOGNA","FOLLA","FOLTO","FONDO",
-  "FONTE","FORTE","FORZA","FOSCO","FOSSO","FRANA","FRATE","FRENO","FRIGO","FRODE",
-  "FUNGO","FUOCO","FUORI","FURBO","FURIA","FUSTO","GABBA","GALLA","GALLO","GAMBA",
-  "GAMBO","GARBO","GARZA","GATTO","GEMMA","GENIO","GERME","GESTO","GHIRO","GHISA",
-  "GIOCO","GIOIA","GLOBO","GNOMO","GOBBA","GOGNA","GOLFO","GOLPE","GOMMA","GONNA",
-  "GONZO","GORGO","GOZZO","GRANO","GRECA","GRETO","GRIDO","GRIFO","GRUMO","GUADO",
-  "GUAIO","GUANO","GUIDA","GUSTO","ICONA","IDOLO","IGLOO","IMAGO","INDIA","INDIO",
-  "INVIO","IRIDE","IROSO","ISOLA","ISTMO","LACCA","LAIDO","LAMPO","LARDO","LARGO",
-  "LASCA","LATTE","LAUTO","LAZIO","LECCO","LEGGE","LEGNO","LEMMA","LENTO","LENZA",
-  "LEONE","LEPRE","LIEVE","LIGIO","LILLA","LIMBO","LINCE","LINFA","LISTA","LITRO",
-  "LIUTO","LOMBO","LONZA","LORDO","LOSCO","LOTTA","LOTTO","LUCCA","LUCRO","LUNGA",
-  "LUNGO","LUOGO","LUSSO","MAGMA","MAGNA","MALGA","MALTO","MAMBO","MANCA","MANCO",
-  "MANIA","MANNA","MANTO","MANZO","MAPPA","MARCA","MARMO","MARZO","MASSA","MAZZO",
-  "MEDIO","MELMA","MENTA","MENTO","MERLO","MESTO","METRO","MEZZO","MIELE","MIRRA",
-  "MIRTO","MISTO","MOGNO","MOLLA","MOLLE","MOLLO","MOLTO","MONDO","MONTE","MORBO",
-  "MORSA","MORSO","MORTO","MOSCA","MOSSO","MOTTO","MUCCA","MULTA","MUSEO","NANNA",
-  "NARDO","NERBO","NERVO","NETTO","NIMBO","NINFA","NITRO","NOCCA","NONNA","NORMA",
-  "NOTTE","NULLA","NUORA","OBLIO","ODORE","OLIVA","OLIVO","OMBRA","OMERO","ONORE",
-  "OPACO","OPERA","OPPIO","ORMAI","OSARE","OSSIA","OSTIA","OSTRA","OVAIA","PACCO",
-  "PADRE","PAESE","PALCO","PALIO","PALLA","PALMO","PANNA","PANNO","PARCO","PARSO",
-  "PARTO","PASSO","PASTA","PASTO","PATIO","PATTO","PAURA","PAUSA","PAZZO","PECCA",
-  "PEGNO","PELLE","PENTO","PERDO","PERLA","PERNO","PERSO","PESCA","PESCE","PETTO",
-  "PIAGA","PIANO","PICCO","PIEDE","PIENO","PIGNA","PIGRO","PINTO","PINZA","PIUMA",
-  "PIZZA","PIZZO","PODIO","POLLO","POLPA","POLSO","POMPA","PONTE","POPPA","PORCO",
-  "PORTA","PORTO","POSSO","POSTO","POZZO","PREDA","PREGO","PREMO","PRESA","PRIMA",
-  "PRIMO","PRIVO","PRODE","PRONA","PRORA","PROSA","PROVA","PUNTO","PURGA","RADIO",
-  "RAFFO","RAGNO","RAMPA","RANGO","RATTO","RAZZA","REALE","REGNO","RESTO","RETTA",
-  "RETTO","RICCO","RIONE","RISMA","RISSO","RITMO","ROCCA","ROGNA","ROMBA","ROMBO",
-  "RONCO","ROSSA","ROSSO","ROTTA","RULLA","RULLO","RUMBA","RUOLO","RUOTA","RUSSA",
-  "RUSSO","SACCA","SACCO","SACRO","SAGRA","SALMO","SALSA","SALTO","SALVO","SAMBA",
-  "SANTO","SARTO","SASSO","SAVIO","SCALA","SCALO","SCEMO","SCENA","SCOPA","SCOPO",
-  "SCUDO","SECCO","SEDIA","SEGNO","SENNO","SENSO","SERVO","SESTO","SFERA","SFIDA",
-  "SFOGO","SISMA","SODIO","SOGNO","SOLCO","SOLDO","SOMMA","SONNO","SOPRA","SORDO",
-  "SORGO","SORSO","SORTE","SORTO","SOTTO","SPADA","SPAGO","SPARO","SPESA","SPIGA",
-  "SPORT","STARE","STATO","STELO","STILE","STIMA","STIVA","STOLA","STRIA","STUFA",
-  "SULLA","SUOLO","SUONO","SVAGO","SVEVO","TACCO","TALCO","TALPA","TANGO","TANTO",
-  "TAPPA","TAPPO","TARDO","TARMA","TASSA","TASTO","TAZZA","TEDIO","TEMPO","TENDA",
-  "TENSO","TENTA","TENTO","TENUE","TERGO","TERME","TERNA","TERNO","TERRA","TERSA",
-  "TERSO","TERZA","TERZO","TESTA","TESTO","TIGRE","TINCA","TINTO","TOCCA","TOCCO",
-  "TOMBA","TONDO","TONNO","TOPPA","TORBA","TORDO","TORMA","TORNA","TORNO","TORSO",
-  "TORTA","TORTO","TORVO","TOSCA","TOSSE","TOSTO","TRAMA","TRAVE","TREMO","TRENO",
-  "TRONO","TROTA","TURBA","TURBO","TURCO","TURNO","TUTTO","UDIRE","ULIVO","ULTRA",
-  "UMANO","UMIDO","UMILE","UNICO","UNIRE","UNITO","USATO","USCIO","USURA","UTILE",
-  "VACCA","VANGA","VANTO","VARCA","VARCO","VARIA","VARIO","VASCA","VASTO","VENTO",
-  "VERBO","VERDE","VERGA","VERSO","VESTA","VESTO","VETRO","VIGNA","VILLA","VIOLA",
-  "VIRTU","VISTA","VOLPE","VOLTA","ZEBRA","ZECCA","ZINCO","ZOLFO","ZOLLA","ZOMBI",
-  "ZOPPO","ZUCCA","ZUFFA","ZUPPA"
+// ─── DATABASE PER LUNGHEZZA ───────────────────────────────────────────────────
+const POOLS = {
+  4: [
+    "ALBA","ARCA","ARCO","ARMA","ARTE","ASTA","ATTO","AULA","AURA","AVVO",
+  ],
+  5: [
+    "ABETE","ABITO","ABUSO","ACETO","ACIDO","ACQUA","AGILE","AGIRE","AGLIO","AIUTO",
+    "ALITO","ALONE","ALTRO","AMARO","AMBRA","AMICO","AMORE","AMPIA","AMPIO","ANIMA",
+    "ANSIA","APICE","APNEA","ARABO","ARARE","ARENA","ARIDO","ARNIA","AROMA","ARSO",
+    "ARTE","ASINO","ASPRO","ASTRO","ATOMO","AUDIO","AVERE","AVIDO","BABBO","BACIO",
+    "BAGNO","BALDO","BALLA","BALZO","BANCO","BANDA","BANDO","BARBA","BARCA","BARDO",
+    "BASSO","BASTO","BAULE","BEFFA","BELLO","BELVA","BIECO","BINGO","BIRBO","BIRRA",
+    "BOCCA","BOCCE","BOLLA","BOMBA","BONGO","BORDO","BORSA","BOSCO","BOSSO","BRACA",
+    "BRAMA","BRANO","BRAVO","BREVE","BRINA","BRODO","BRUNA","BULBO","BULLO","BUONO",
+    "BURLA","BUSTO","CACCA","CACTO","CALCE","CALDO","CALMA","CALMO","CALVO","CALZA",
+    "CAMPO","CANOA","CANTO","CAPPA","CAPRA","CAPRO","CARMA","CARPA","CARRO","CARSO",
+    "CARTA","CASCO","CASSA","CASTA","CASTO","CAUSA","CAVIA","CEDRO","CELLA","CENNO",
+    "CENSO","CEPPO","CERCO","CERTO","CERVO","CESTA","CESTO","CHINA","CIGNO","CIPPO",
+    "CIRCA","CIRCO","CLAVA","CLERO","CLIMA","CLONE","CLORO","COBRA","COCCO","COFFA",
+    "COLLA","COLLO","COLMO","COLPA","COLPO","COLTO","CONCA","CONTA","CONTE","COPIA",
+    "COPPA","CORDA","CORNO","CORPO","CORSA","CORTE","CORVO","COSCA","COSMO","COSTA",
+    "COSTO","COZZO","CREMA","CROCE","CRUDO","CUNEO","CUORE","CURDO","CURVA","DAINO",
+    "DANNO","DANZA","DARDO","DENSO","DENTE","DETTO","DISCO","DITTA","DOCCE","DOGMA",
+    "DOLCE","DONNA","DORSO","DOSSO","DOTTO","DRAGO","DROGA","DUOMO","EBANO","EBETE",
+    "EDEMA","EDERA","EGIDA","ELICA","EMPIO","EMULO","ENTRO","EPICA","EPOCA","ERNIA",
+    "ERODE","EROSO","ESAME","ESITO","ESODO","ESTRO","ETERE","ETICA","ETILE","ETNIA",
+    "EVASO","EVOCA","FALCO","FALDA","FALLO","FALSA","FANGO","FARRO","FARSA","FATTO",
+    "FERMA","FERMO","FERRO","FESTA","FETTA","FIABA","FIATO","FIBRA","FIENO","FIERO",
+    "FIORE","FISSO","FIUME","FLEBO","FLORA","FOBIA","FOGNA","FOLLA","FOLTO","FONDO",
+    "FONTE","FORTE","FORZA","FOSCO","FOSSO","FRANA","FRATE","FRENO","FRIGO","FRODE",
+    "FUNGO","FUOCO","FUORI","FURBO","FURIA","FUSTO","GABBA","GALLA","GALLO","GAMBA",
+    "GAMBO","GARBO","GARZA","GATTO","GEMMA","GENIO","GERME","GESTO","GHIRO","GHISA",
+    "GIOCO","GIOIA","GLOBO","GNOMO","GOBBA","GOGNA","GOLFO","GOLPE","GOMMA","GONNA",
+    "GONZO","GORGO","GOZZO","GRANO","GRECA","GRETO","GRIDO","GRIFO","GRUMO","GUADO",
+    "GUAIO","GUANO","GUIDA","GUSTO","ICONA","IDOLO","IGLOO","IMAGO","INDIA","INDIO",
+    "INVIO","IRIDE","IROSO","ISOLA","ISTMO","LACCA","LAIDO","LAMPO","LARDO","LARGO",
+    "LASCA","LATTE","LAUTO","LAZIO","LECCO","LEGGE","LEGNO","LEMMA","LENTO","LENZA",
+    "LEONE","LEPRE","LIEVE","LIGIO","LILLA","LIMBO","LINCE","LINFA","LISTA","LITRO",
+    "LIUTO","LOMBO","LONZA","LORDO","LOSCO","LOTTA","LOTTO","LUCCA","LUCRO","LUNGA",
+    "LUNGO","LUOGO","LUSSO","MAGMA","MAGNA","MALGA","MALTO","MAMBO","MANCA","MANCO",
+    "MANIA","MANNA","MANTO","MANZO","MAPPA","MARCA","MARMO","MARZO","MASSA","MAZZO",
+    "MEDIO","MELMA","MENTA","MENTO","MERLO","MESTO","METRO","MEZZO","MIELE","MIRRA",
+    "MIRTO","MISTO","MOGNO","MOLLA","MOLLE","MOLLO","MOLTO","MONDO","MONTE","MORBO",
+    "MORSA","MORSO","MORTO","MOSCA","MOSSO","MOTTO","MUCCA","MULTA","MUSEO","NANNA",
+    "NARDO","NERBO","NERVO","NETTO","NIMBO","NINFA","NITRO","NOCCA","NONNA","NORMA",
+    "NOTTE","NULLA","NUORA","OBLIO","ODORE","OLIVA","OLIVO","OMBRA","OMERO","ONORE",
+    "OPACO","OPERA","OPPIO","ORMAI","OSARE","OSSIA","OSTIA","OSTRA","OVAIA","PACCO",
+    "PADRE","PAESE","PALCO","PALIO","PALLA","PALMO","PANNA","PANNO","PARCO","PARSO",
+    "PARTO","PASSO","PASTA","PASTO","PATIO","PATTO","PAURA","PAUSA","PAZZO","PECCA",
+    "PEGNO","PELLE","PENTO","PERDO","PERLA","PERNO","PERSO","PESCA","PESCE","PETTO",
+    "PIAGA","PIANO","PICCO","PIEDE","PIENO","PIGNA","PIGRO","PINTO","PINZA","PIUMA",
+    "PIZZA","PIZZO","PODIO","POLLO","POLPA","POLSO","POMPA","PONTE","POPPA","PORCO",
+    "PORTA","PORTO","POSSO","POSTO","POZZO","PREDA","PREGO","PREMO","PRESA","PRIMA",
+    "PRIMO","PRIVO","PRODE","PRONA","PRORA","PROSA","PROVA","PUNTO","PURGA","RADIO",
+    "RAFFO","RAGNO","RAMPA","RANGO","RATTO","RAZZA","REALE","REGNO","RESTO","RETTA",
+    "RETTO","RICCO","RIONE","RISMA","RISSO","RITMO","ROCCA","ROGNA","ROMBA","ROMBO",
+    "RONCO","ROSSA","ROSSO","ROTTA","RULLA","RULLO","RUMBA","RUOLO","RUOTA","RUSSA",
+    "RUSSO","SACCA","SACCO","SACRO","SAGRA","SALMO","SALSA","SALTO","SALVO","SAMBA",
+    "SANTO","SARTO","SASSO","SAVIO","SCALA","SCALO","SCEMO","SCENA","SCOPA","SCOPO",
+    "SCUDO","SECCO","SEDIA","SEGNO","SENNO","SENSO","SERVO","SESTO","SFERA","SFIDA",
+    "SFOGO","SISMA","SODIO","SOGNO","SOLCO","SOLDO","SOMMA","SONNO","SOPRA","SORDO",
+    "SORGO","SORSO","SORTE","SORTO","SOTTO","SPADA","SPAGO","SPARO","SPESA","SPIGA",
+    "SPORT","STARE","STATO","STELO","STILE","STIMA","STIVA","STOLA","STRIA","STUFA",
+    "SULLA","SUOLO","SUONO","SVAGO","SVEVO","TACCO","TALCO","TALPA","TANGO","TANTO",
+    "TAPPA","TAPPO","TARDO","TARMA","TASSA","TASTO","TAZZA","TEDIO","TEMPO","TENDA",
+    "TENSO","TENTA","TENTO","TENUE","TERGO","TERME","TERNA","TERNO","TERRA","TERSA",
+    "TERSO","TERZA","TERZO","TESTA","TESTO","TIGRE","TINCA","TINTO","TOCCA","TOCCO",
+    "TOMBA","TONDO","TONNO","TOPPA","TORBA","TORDO","TORMA","TORNA","TORNO","TORSO",
+    "TORTA","TORTO","TORVO","TOSCA","TOSSE","TOSTO","TRAMA","TRAVE","TREMO","TRENO",
+    "TRONO","TROTA","TURBA","TURBO","TURCO","TURNO","TUTTO","UDIRE","ULIVO","ULTRA",
+    "UMANO","UMIDO","UMILE","UNICO","UNIRE","UNITO","USATO","USCIO","USURA","UTILE",
+    "VACCA","VANGA","VANTO","VARCA","VARCO","VARIA","VARIO","VASCA","VASTO","VENTO",
+    "VERBO","VERDE","VERGA","VERSO","VESTA","VESTO","VETRO","VIGNA","VILLA","VIOLA",
+    "VIRTU","VISTA","VOLPE","VOLTA","ZEBRA","ZECCA","ZINCO","ZOLFO","ZOLLA","ZOMBI",
+    "ZOPPO","ZUCCA","ZUFFA","ZUPPA"
+  ],
+  6: [
+    "ABSIDE","ACCUSA","ALDILA","ALPACA","AMBITO","ANELLO","ANGOLO","ANIMALE","APRILE","ARMATA",
+  ],
+  7: [
+    "ABBRACO","ACCENTO","ACCORDO","ACHILLE","ACONITO","ADORARE","AGITARE","ALLARME","ALTEZZA","AMIANTO",
+  ],
+  8: [
+    "ABITUDINE","ABBRACCIO","ACCADEMIA","ACCELERA","ACCESSORI","ACCONTENTA","ACQUISIRE","ACROBAZIA","ADOTTARE","AFFIDARE",
+  ],
+};
+
+// Modalità disponibili
+const MODES = [
+  { key: 4, label: "4 lettere", emoji: "🟦", desc: "Parole da 4 lettere — più semplice" },
+  { key: 5, label: "5 lettere", emoji: "🟩", desc: "La modalità classica" },
+  { key: 6, label: "6 lettere", emoji: "🟨", desc: "Parole da 6 lettere" },
+  { key: 7, label: "7 lettere", emoji: "🟧", desc: "Parole da 7 lettere" },
+  { key: 8, label: "8+ lettere", emoji: "🟥", desc: "Parole lunghe — difficile!" },
 ];
-const POOL_SIZE = WORDLE_POOL.length;
 
 // ─── SEED & DATE ──────────────────────────────────────────────────────────────
-function getWordleWord(seed) {
-  let s = (seed + 200001) >>> 0;
+function getWord(seed, wordLen) {
+  const pool = POOLS[wordLen] || POOLS[5];
+  const size = pool.length;
+  let s = (seed + 200001 + wordLen * 7) >>> 0;
   s = (Math.imul(s ^ (s >>> 16), 0x45d9f3b)) >>> 0;
   s = (Math.imul(s ^ (s >>> 16), 0x45d9f3b)) >>> 0;
   s = (s ^ (s >>> 16)) >>> 0;
-  return WORDLE_POOL[s % POOL_SIZE];
+  return pool[s % size];
 }
 function seedFromDate(d) {
   return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
@@ -95,12 +119,13 @@ function isToday(d) {
 
 // ─── EVALUATE ────────────────────────────────────────────────────────────────
 function evaluate(guess, target) {
-  const result = Array(5).fill("absent");
-  const tArr = target.split(""), gArr = guess.split(""), used = Array(5).fill(false);
-  for (let i = 0; i < 5; i++) if (gArr[i] === tArr[i]) { result[i] = "correct"; used[i] = true; }
-  for (let i = 0; i < 5; i++) {
+  const len = target.length;
+  const result = Array(len).fill("absent");
+  const tArr = target.split(""), gArr = guess.split(""), used = Array(len).fill(false);
+  for (let i = 0; i < len; i++) if (gArr[i] === tArr[i]) { result[i] = "correct"; used[i] = true; }
+  for (let i = 0; i < len; i++) {
     if (result[i] === "correct") continue;
-    for (let j = 0; j < 5; j++) {
+    for (let j = 0; j < len; j++) {
       if (!used[j] && gArr[i] === tArr[j]) { result[i] = "present"; used[j] = true; break; }
     }
   }
@@ -123,8 +148,46 @@ function spawnConfetti() {
   }
 }
 
+// ─── STREAK ──────────────────────────────────────────────────────────────────
+function lsKey(wordLen) { return `wml_${wordLen}_`; }
+
+function computeStreak(wordLen) {
+  const LS = lsKey(wordLen);
+  const today = new Date();
+  let streak = 0;
+  const todaySeed = seedFromDate(today);
+  let todayWon = false;
+  try {
+    const t = JSON.parse(localStorage.getItem(LS+"game_"+todaySeed)||"null");
+    todayWon = t?.won === true;
+  } catch {}
+  const startOffset = todayWon ? 0 : 1;
+  for (let i = startOffset; i <= 365; i++) {
+    const d = new Date(today); d.setDate(today.getDate() - i);
+    try {
+      const saved = JSON.parse(localStorage.getItem(LS+"game_"+seedFromDate(d))||"null");
+      if (saved?.won === true) { streak++; }
+      else { break; }
+    } catch { break; }
+  }
+  return streak;
+}
+
+function resolveStreak(savedStats, wordLen) {
+  const liveStreak = computeStreak(wordLen);
+  if (liveStreak > 0) return liveStreak;
+  if (!savedStats?.streakSnapshot || !savedStats?.lastWonDate) return 0;
+  const lastWon = new Date(savedStats.lastWonDate);
+  const today = new Date();
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  const sameDay = (a, b) =>
+    a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+  if (sameDay(lastWon, today) || sameDay(lastWon, yesterday)) return savedStats.streakSnapshot;
+  return 0;
+}
+
 // ─── COUNTDOWN ───────────────────────────────────────────────────────────────
-function useCountdown() {
+const Countdown = memo(function Countdown() {
   const [time, setTime] = useState("--:--:--");
   useEffect(() => {
     function tick() {
@@ -140,7 +203,23 @@ function useCountdown() {
     const iv = setInterval(tick, 1000);
     return () => clearInterval(iv);
   }, []);
-  return time;
+  return <span className="countdown-time">{time}</span>;
+});
+
+// ─── SWIPE-DOWN ──────────────────────────────────────────────────────────────
+function useSwipeDown(onSwipe) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let startY = 0;
+    const onTouchStart = (e) => { startY = e.touches[0].clientY; };
+    const onTouchEnd = (e) => { if (e.changedTouches[0].clientY - startY > 60) onSwipe(); };
+    el.addEventListener("touchstart", onTouchStart, {passive:true});
+    el.addEventListener("touchend", onTouchEnd, {passive:true});
+    return () => { el.removeEventListener("touchstart",onTouchStart); el.removeEventListener("touchend",onTouchEnd); };
+  }, [onSwipe]);
+  return ref;
 }
 
 // ─── STYLES ──────────────────────────────────────────────────────────────────
@@ -151,10 +230,12 @@ const STYLES = `
   --bg:#121213;--surface:#1a1a1b;--border:#3a3a3c;
   --text:#fff;--muted:#818384;
   --correct:#6aaa64;--present:#c9b458;--absent:#787c7e;
+  --share-bg:#0e0e0f;
 }
 .light{
   --bg:#f9f9f9;--surface:#fff;--border:#d3d6da;
-  --text:#1a1a1b;--muted:#787c7e;--absent:#878a8c;
+  --text:#1a1a1b;--muted:#6e7275;--absent:#878a8c;
+  --share-bg:#e8e8e8;
 }
 .light .kb-key{background:#d3d6da;color:#1a1a1b}
 .light .kb-key.kb-correct{background:var(--correct);color:#fff}
@@ -162,14 +243,22 @@ const STYLES = `
 .light .kb-key.kb-absent{background:#787c7e;color:#fff}
 .light .cell{background:var(--bg);color:var(--text)}
 .light .btn-secondary{background:#c5c7c9!important;color:#1a1a1b!important}
-.light .share-box{background:#efefef}
-.light .toast{background:var(--text);color:var(--bg)}
+.light .share-box{background:#e8e8e8;border-color:#c8c8c8}
+.light .share-header{color:#555}
+.light .share-score{color:var(--correct)}
+.light .toast{background:#1a1a1b;color:#fff}
+.light .countdown-wrap{background:rgba(0,0,0,.03)}
+.light .mode-card{background:#f0f0f0;border-color:#d3d6da;color:#1a1a1b}
+.light .mode-card:hover{background:#e4e4e4}
+.light .mode-card.active{border-color:var(--correct);background:rgba(106,170,100,.1)}
 
 .wordle-root{
   background:var(--bg);color:var(--text);
   font-family:'Inter',sans-serif;
   display:flex;flex-direction:column;align-items:center;
-  width:100%;min-height:100svh;transition:background .25s,color .25s;
+  width:100%;
+  min-height:100dvh;
+  transition:background .25s,color .25s;
 }
 
 @keyframes confettiFall{0%{transform:translateY(-10px) rotate(0);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
@@ -182,16 +271,28 @@ const STYLES = `
 @keyframes streakPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.25)}}
 
 .header{
-  width:100%;max-width:480px;
+  width:100%;max-width:500px;
   display:grid;grid-template-columns:1fr auto 1fr;
   align-items:center;padding:10px 10px 8px;
   border-bottom:1px solid var(--border);flex-shrink:0;
 }
 .header-left{display:flex;justify-content:flex-start;align-items:center;gap:2px}
 .header-right{display:flex;justify-content:flex-end;align-items:center;gap:2px}
-.header-center{display:flex;flex-direction:column;align-items:center;gap:1px}
-.header-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;line-height:1;white-space:nowrap;color:var(--text)}
+.header-center{
+  display:flex;flex-direction:column;
+  align-items:flex-start;
+  padding-left:6px;
+  gap:1px;
+}
+.header-title{
+  font-family:'Bebas Neue',sans-serif;font-size:22px;
+  letter-spacing:3px;line-height:1;white-space:nowrap;color:var(--text);
+}
 .header-date{font-size:10px;color:var(--muted);letter-spacing:.3px}
+.header-mode{
+  font-size:10px;font-weight:700;letter-spacing:.5px;
+  color:var(--correct);opacity:.85;
+}
 
 .icon-btn{
   background:none;border:none;cursor:pointer;color:var(--muted);
@@ -202,8 +303,7 @@ const STYLES = `
 .icon-btn:hover{color:var(--text);background:rgba(128,128,128,.12)}
 
 .streak-badge{
-  display:flex;align-items:center;gap:2px;
-  font-size:12px;font-weight:700;color:#f5a000;
+  display:flex;align-items:center;gap:2px;font-size:12px;font-weight:700;color:#f5a000;
   padding:2px 6px;border-radius:10px;
   background:rgba(245,160,0,.12);border:1px solid rgba(245,160,0,.25);
   margin-right:2px;white-space:nowrap;
@@ -217,64 +317,108 @@ const STYLES = `
 }
 .toast{
   background:var(--text);color:var(--bg);
-  font-weight:700;font-size:13px;
-  padding:9px 16px;border-radius:6px;
+  font-weight:700;font-size:13px;padding:9px 16px;border-radius:6px;
   animation:fadeIn .2s ease both;white-space:nowrap;
 }
 
 .game-area{
-  flex:1;width:100%;max-width:480px;
+  flex:1;width:100%;max-width:500px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:10px;padding:10px 8px 14px;
+  gap:8px;
+  padding:8px 8px 12px;
+  overflow:hidden;
 }
 
 .board{display:flex;flex-direction:column;gap:5px;align-items:center}
 .board.shake{animation:shake .4s ease}
 .board-row{display:flex;gap:5px}
 
+/* Celle — dimensione adattiva in base alla lunghezza */
 .cell{
-  width:56px;height:56px;
+  width:clamp(36px,10vw,54px);
+  height:clamp(36px,10vw,54px);
   display:flex;align-items:center;justify-content:center;
-  font-family:'Bebas Neue',sans-serif;font-size:28px;
-  border:2px solid var(--border);
-  background:var(--bg);color:var(--text);
-  user-select:none;transition:border-color .1s;
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(18px,4.5vw,26px);
+  border:2px solid var(--border);background:var(--bg);color:var(--text);
+  user-select:none;transition:border-color .1s;cursor:pointer;
+}
+/* Celle più piccole per parole lunghe */
+.cell.small{
+  width:clamp(30px,8.5vw,44px);
+  height:clamp(30px,8.5vw,44px);
+  font-size:clamp(15px,3.8vw,22px);
+}
+.cell.xsmall{
+  width:clamp(26px,7.5vw,38px);
+  height:clamp(26px,7.5vw,38px);
+  font-size:clamp(13px,3.2vw,19px);
 }
 .cell.filled{border-color:#787c7e;animation:pop .1s ease}
 .cell.revealed{border-color:var(--status);background:var(--status);color:#fff;animation:revealCell .22s ease both}
 .cell.bounce{animation:bounceWin .5s ease var(--delay) both}
+.cell.current-row{border-color:#909090}
+.cell.current-row.filled{border-color:#c8c8c8}
+.light .cell.current-row{border-color:#888}
+.light .cell.current-row.filled{border-color:#444}
 
-.attempt-counter{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.5px;text-align:center;min-height:16px}
-
-.keyboard{width:100%;max-width:480px;display:flex;flex-direction:column;gap:6px}
-.kb-row{display:flex;justify-content:center;gap:5px}
-.kb-key{
-  height:52px;min-width:36px;max-width:36px;flex:1;
-  border-radius:4px;border:none;background:#818384;color:#fff;
-  font-family:'Inter',sans-serif;font-size:12px;font-weight:700;
-  cursor:pointer;transition:background .25s,transform .1s;user-select:none;
+.attempt-counter{
+  font-size:11px;color:var(--muted);font-weight:600;
+  letter-spacing:.5px;text-align:center;min-height:15px;
 }
-.kb-key.wide{min-width:58px;max-width:58px;font-size:11px}
-.kb-key:active{transform:scale(.95)}
+
+.keyboard{
+  width:100%;max-width:500px;
+  display:flex;flex-direction:column;gap:8px;
+  flex-shrink:0;
+  padding:0 4px;
+}
+.kb-row{display:flex;justify-content:center;gap:4px}
+.kb-key{
+  flex:1;
+  height:clamp(46px,12vw,56px);
+  min-width:0;
+  overflow:hidden;
+  border-radius:5px;border:none;
+  background:#818384;color:#fff;
+  font-family:'Inter',sans-serif;
+  font-size:clamp(12px,3.2vw,15px);
+  font-weight:700;cursor:pointer;
+  transition:background .25s,opacity .1s;
+  user-select:none;touch-action:manipulation;
+  padding:0;
+  -webkit-tap-highlight-color:transparent;
+}
+.kb-key:active{opacity:.7}
+.kb-key.wide{
+  flex:1.6;
+  font-size:clamp(9px,2.4vw,11px);
+}
 .kb-key.kb-correct{background:var(--correct)}
 .kb-key.kb-present{background:var(--present)}
 .kb-key.kb-absent{background:#3a3a3c}
 
+/* Modal */
 .overlay{
   position:fixed;inset:0;background:rgba(0,0,0,.82);
   display:flex;align-items:center;justify-content:center;
-  z-index:200;animation:fadeIn .2s ease;padding:16px;
+  z-index:200;padding:16px;
 }
 .modal{
   background:var(--surface);border:1px solid var(--border);border-radius:14px;
-  width:100%;max-width:340px;padding:22px 16px;
-  display:flex;flex-direction:column;align-items:center;gap:14px;
-  animation:slideUp .3s ease;max-height:90svh;overflow-y:auto;
+  width:100%;max-width:360px;padding:20px 16px;
+  display:flex;flex-direction:column;align-items:center;gap:13px;
+  animation:slideUp .25s ease both;
+  max-height:90dvh;overflow-y:auto;
+}
+.modal-handle{
+  width:36px;height:4px;border-radius:2px;
+  background:var(--border);margin-bottom:-4px;flex-shrink:0;
 }
 .modal h2{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:2px;color:var(--text)}
 .modal p{font-size:13px;color:var(--muted);text-align:center;line-height:1.5}
 .modal-word{
-  font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:4px;
+  font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:4px;
   color:var(--correct);background:rgba(106,170,100,.12);
   padding:6px 20px;border-radius:8px;border:1px solid rgba(106,170,100,.3);
 }
@@ -295,14 +439,14 @@ const STYLES = `
 .dist-bar{
   height:20px;min-width:24px;background:var(--absent);border-radius:3px;
   display:flex;align-items:center;justify-content:flex-end;padding-right:6px;
-  font-size:11px;font-weight:700;transition:width .6s ease;color:#fff;
+  font-size:11px;font-weight:700;color:#fff;
 }
 .dist-bar.hi{background:var(--correct)}
 .btn{
   padding:11px 16px;border-radius:8px;border:none;
   font-family:'Inter',sans-serif;font-weight:700;font-size:13px;
   cursor:pointer;transition:filter .15s,transform .1s;
-  white-space:nowrap;color:#fff!important;
+  white-space:nowrap;color:#fff!important;touch-action:manipulation;
 }
 .btn:hover{filter:brightness(1.12)}
 .btn:active{transform:scale(.97)}
@@ -310,7 +454,7 @@ const STYLES = `
 .btn-secondary{background:#4a4a4c}
 .btn-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;width:100%}
 .share-box{
-  background:#0e0e0f;border-radius:10px;padding:12px 14px;
+  background:var(--share-bg);border-radius:10px;padding:12px 14px;
   border:1px solid var(--border);width:100%;
   display:flex;flex-direction:column;align-items:center;gap:4px;
 }
@@ -320,19 +464,18 @@ const STYLES = `
 .tutorial-examples{display:flex;flex-direction:column;gap:10px;width:100%}
 .tutorial-row{display:flex;gap:4px;justify-content:center}
 .tutorial-cell{
-  width:42px;height:42px;
-  display:flex;align-items:center;justify-content:center;
-  font-family:'Bebas Neue',sans-serif;font-size:22px;
+  width:40px;height:40px;display:flex;align-items:center;justify-content:center;
+  font-family:'Bebas Neue',sans-serif;font-size:20px;
   border:2px solid var(--border);border-radius:2px;color:var(--text);
 }
 .tutorial-cell.correct{background:var(--correct);border-color:var(--correct);color:#fff}
 .tutorial-cell.present{background:var(--present);border-color:var(--present);color:#fff}
 .tutorial-cell.absent{background:var(--absent);border-color:var(--absent);color:#fff}
-.archive-wrap{display:flex;flex-wrap:wrap;gap:6px;max-height:160px;overflow-y:auto;padding:2px;width:100%}
+.archive-wrap{display:flex;flex-wrap:wrap;gap:6px;max-height:155px;overflow-y:auto;padding:2px;width:100%}
 .chip{
   padding:5px 10px;border-radius:20px;font-size:11px;font-weight:600;
   cursor:pointer;border:1px solid transparent;background:var(--border);color:var(--text);
-  transition:background .2s;display:flex;align-items:center;gap:4px;
+  display:flex;align-items:center;gap:4px;touch-action:manipulation;
 }
 .chip:hover{filter:brightness(1.2)}
 .chip.today{background:var(--correct);color:#fff}
@@ -342,16 +485,40 @@ const STYLES = `
 .archive-legend{font-size:11px;color:var(--muted);display:flex;gap:12px;justify-content:center}
 .archive-legend span{display:flex;align-items:center;gap:4px}
 
-@media(max-width:380px){
-  .cell{width:50px;height:50px;font-size:24px}
-  .kb-key{min-width:30px;max-width:30px;height:46px;font-size:10px}
-  .kb-key.wide{min-width:50px;max-width:50px}
-  .header-title{font-size:18px;letter-spacing:2px}
+/* ── Selezione modalità ── */
+.mode-select-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.82);
+  display:flex;align-items:center;justify-content:center;
+  z-index:300;padding:16px;
 }
+.mode-select-modal{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  width:100%;max-width:360px;padding:22px 16px;
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  animation:slideUp .25s ease both;
+}
+.mode-select-modal h2{
+  font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:2px;color:var(--text);
+}
+.mode-select-modal p{font-size:12px;color:var(--muted);text-align:center}
+.mode-list{display:flex;flex-direction:column;gap:8px;width:100%}
+.mode-card{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 14px;border-radius:10px;
+  background:var(--border);border:2px solid transparent;
+  cursor:pointer;transition:background .15s,border-color .15s;
+  touch-action:manipulation;
+}
+.mode-card:hover{background:#3a3a3c}
+.mode-card.active{border-color:var(--correct);background:rgba(106,170,100,.08)}
+.mode-card-emoji{font-size:20px;flex-shrink:0}
+.mode-card-info{display:flex;flex-direction:column;gap:2px}
+.mode-card-label{font-weight:700;font-size:14px;color:var(--text)}
+.mode-card-desc{font-size:11px;color:var(--muted)}
 `;
 
 // ─── COSTANTI ────────────────────────────────────────────────────────────────
-const LS = "wi2_", RESET_FLAG = "wi2_reset_v1", MAX_GUESSES = 6;
+const RESET_FLAG = "wml_reset_v1", MAX_GUESSES = 6;
 const WIN_MSGS = ["Perfetto! 🎯","Brillante! ✨","Ottimo! 💪","Bravo! 🎉","Ce l'hai fatta!","Salvato in extremis 😅"];
 const KB_ROWS = [
   ["Q","W","E","R","T","Y","U","I","O","P"],
@@ -366,7 +533,15 @@ function statusColor(s) {
   return "transparent";
 }
 
-function Keyboard({onKey, letterStates}) {
+// Restituisce classe dimensione cella in base alla lunghezza parola
+function cellSizeClass(wordLen) {
+  if (wordLen >= 8) return " xsmall";
+  if (wordLen >= 6) return " small";
+  return "";
+}
+
+// ─── KEYBOARD ────────────────────────────────────────────────────────────────
+const Keyboard = memo(function Keyboard({onKey, letterStates}) {
   return (
     <div className="keyboard">
       {KB_ROWS.map((row,ri) => (
@@ -376,7 +551,13 @@ function Keyboard({onKey, letterStates}) {
             return (
               <button key={k}
                 className={`kb-key${k.length>1?" wide":""}${st?` kb-${st}`:""}`}
-                onClick={() => onKey(k)}>{k}
+                onPointerDown={e => { e.currentTarget.releasePointerCapture(e.pointerId); }}
+                onPointerUp={e => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  if (e.clientX >= r.left && e.clientX <= r.right &&
+                      e.clientY >= r.top  && e.clientY <= r.bottom) { onKey(k); }
+                }}>
+                {k}
               </button>
             );
           })}
@@ -384,10 +565,202 @@ function Keyboard({onKey, letterStates}) {
       ))}
     </div>
   );
-}
+});
 
-// ─── APP ────────────────────────────────────────────────────────────────────
-export default function App() {
+// ─── MODAL SELEZIONE MODALITÀ ────────────────────────────────────────────────
+const ModalModeSelect = memo(function ModalModeSelect({ currentMode, onSelect, lightMode, onToggleLight }) {
+  return (
+    <div className="mode-select-overlay">
+      <div className="mode-select-modal">
+        <h2>WORDLE ITALIANO</h2>
+        <p>Scegli la lunghezza delle parole</p>
+        <div className="mode-list">
+          {MODES.map(m => (
+            <div
+              key={m.key}
+              className={`mode-card${currentMode===m.key?" active":""}`}
+              onClick={() => onSelect(m.key)}
+            >
+              <span className="mode-card-emoji">{m.emoji}</span>
+              <div className="mode-card-info">
+                <span className="mode-card-label">{m.label}</span>
+                <span className="mode-card-desc">{m.desc}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{display:"flex",gap:"10px",alignItems:"center",marginTop:2}}>
+          <button
+            className="icon-btn"
+            style={{color:"var(--muted)",width:"auto",padding:"6px 12px",fontSize:"12px",fontWeight:"700"}}
+            onClick={onToggleLight}
+          >
+            {lightMode ? "🌙 Dark" : "☀️ Light"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+// ─── MODALI ──────────────────────────────────────────────────────────────────
+const ModalTutorial = memo(function ModalTutorial({onClose, wordLen}) {
+  const ref = useSwipeDown(onClose);
+  const example = wordLen === 4 ? ["A","R","C","O"] : wordLen === 5 ? ["P","I","A","N","O"] : wordLen === 6 ? ["P","I","A","N","T","A"] : wordLen === 7 ? ["B","A","L","C","O","N","E"] : ["A","B","I","T","U","D","I","N","E"];
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" ref={ref} onClick={e => e.stopPropagation()}>
+        <div className="modal-handle"/>
+        <h2>Come si gioca</h2>
+        <p>Indovina la parola in {MAX_GUESSES} tentativi.<br/>Ogni tentativo deve avere <b>{wordLen}</b> lettere.</p>
+        <div className="tutorial-examples">
+          <p style={{fontSize:"12px",color:"var(--muted)"}}>🟩 Lettera corretta nella posizione giusta</p>
+          <div className="tutorial-row">
+            {example.slice(0, wordLen).map((l,i) => (
+              <div key={i} className={`tutorial-cell${i===0?" correct":""}`}>{l}</div>
+            ))}
+          </div>
+          <p style={{fontSize:"12px",color:"var(--muted)"}}>🟨 Lettera presente ma in posizione sbagliata</p>
+          <div className="tutorial-row">
+            {example.slice(0, wordLen).map((l,i) => (
+              <div key={i} className={`tutorial-cell${i===2?" present":""}`}>{l}</div>
+            ))}
+          </div>
+          <p style={{fontSize:"12px",color:"var(--muted)"}}>⬛ Lettera non presente</p>
+          <div className="tutorial-row">
+            {example.slice(0, wordLen).map((l,i) => (
+              <div key={i} className={`tutorial-cell${i===wordLen-1?" absent":""}`}>{l}</div>
+            ))}
+          </div>
+        </div>
+        <p>Una nuova parola ogni giorno per ogni modalità!</p>
+        <button className="btn btn-primary" onClick={onClose}>Inizia!</button>
+      </div>
+    </div>
+  );
+});
+
+const ModalStats = memo(function ModalStats({stats, guesses, won, onClose}) {
+  const ref = useSwipeDown(onClose);
+  const maxBar = Math.max(...Object.values(stats.dist), 1);
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" ref={ref} onClick={e => e.stopPropagation()}>
+        <div className="modal-handle"/>
+        <h2>Statistiche</h2>
+        <div className="stats-grid">
+          <div className="stat-box"><span className="stat-num">{stats.played}</span><span className="stat-label">Partite</span></div>
+          <div className="stat-box"><span className="stat-num">{stats.played?Math.round(stats.wins/stats.played*100):0}%</span><span className="stat-label">Vittorie</span></div>
+          <div className="stat-box"><span className="stat-num">{stats.streak}</span><span className="stat-label">Serie</span></div>
+          <div className="stat-box"><span className="stat-num">{stats.maxStreak}</span><span className="stat-label">Record</span></div>
+        </div>
+        <div className="dist-wrap">
+          {[1,2,3,4,5,6].map(n => (
+            <div className="dist-row" key={n}>
+              <span className="dist-num">{n}</span>
+              <div className={`dist-bar${guesses.length===n&&won?" hi":""}`}
+                style={{width:`${Math.max(24,(stats.dist[n]||0)/maxBar*160)}px`}}>
+                {stats.dist[n]||0}
+              </div>
+            </div>
+          ))}
+        </div>
+        <button className="btn btn-secondary" onClick={onClose}>Chiudi</button>
+      </div>
+    </div>
+  );
+});
+
+const ModalEnd = memo(function ModalEnd({won, target, guesses, dateLabel, archiveDate, share, onClose, onStats, onRandom, onArchive}) {
+  const [copied, setCopied] = useState(false);
+  const ref = useSwipeDown(onClose);
+  const showCountdown = !archiveDate || isToday(archiveDate);
+
+  function doShare() {
+    if (navigator.share) {
+      navigator.share({ text: share.plainText }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(share.plainText).then(() => {
+        setCopied(true); setTimeout(() => setCopied(false), 2000);
+      });
+    }
+  }
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" ref={ref} onClick={e => e.stopPropagation()}>
+        <div className="modal-handle"/>
+        <h2>{won ? "Hai vinto!" : "Peccato"}</h2>
+        {!won && <><p>La parola era:</p><div className="modal-word">{target}</div></>}
+        <div className="share-box">
+          <div className="share-header">{share.header}</div>
+          <div className="share-grid">{share.rows.map((row,i) => <div key={i}>{row}</div>)}</div>
+          <div className="share-score">{share.score}</div>
+        </div>
+        {showCountdown && (
+          <div className="countdown-wrap">
+            <span className="countdown-label">Prossima parola tra</span>
+            <Countdown />
+          </div>
+        )}
+        <div className="btn-row">
+          <button className="btn btn-primary" onClick={doShare}>
+            {navigator.share ? "Condividi" : (copied ? "✓ Copiato!" : "Copia")}
+          </button>
+          <button className="btn btn-secondary" onClick={onStats}>Statistiche</button>
+        </div>
+        <div className="btn-row">
+          <button className="btn btn-secondary" onClick={onRandom}>Gioca ancora</button>
+          <button className="btn btn-secondary" onClick={onArchive}>Archivio</button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+const ModalArchive = memo(function ModalArchive({onSelect, onClose, getStatus}) {
+  const ref = useSwipeDown(onClose);
+  const today = new Date();
+  const chips = Array.from({length:30}, (_,i) => {
+    const d = new Date(today); d.setDate(today.getDate()-i);
+    const label = i===0 ? "Oggi" : d.toLocaleDateString("it-IT",{day:"2-digit",month:"2-digit"});
+    return {d, label, isToday: i===0, status: getStatus(d)};
+  });
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" ref={ref} onClick={e => e.stopPropagation()}>
+        <div className="modal-handle"/>
+        <h2>Archivio</h2>
+        <p>Gioca le sfide degli ultimi 30 giorni</p>
+        <div className="archive-wrap">
+          {chips.map(({d, label, isToday: it, status}, i) => {
+            let cls = "chip";
+            if (it) cls += " today";
+            else if (status==="w") cls += " done-w";
+            else if (status==="l") cls += " done-l";
+            return (
+              <button key={i} className={cls} onClick={() => onSelect(it ? null : d)}>
+                {status && <span className="chip-dot"/>}
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="archive-legend">
+          <span><span style={{color:"var(--correct)"}}>●</span> vinta</span>
+          <span><span style={{color:"var(--muted)"}}>●</span> persa</span>
+        </div>
+        <button className="btn btn-secondary" onClick={onClose}>Chiudi</button>
+      </div>
+    </div>
+  );
+});
+
+// ─── GAME CORE ───────────────────────────────────────────────────────────────
+function GameCore({ wordLen, lightMode, setLightMode, onChangeMode }) {
+  const LS = lsKey(wordLen);
+  const modeLabel = MODES.find(m => m.key === wordLen)?.label || `${wordLen} lettere`;
+
   const [target,setTarget]               = useState("");
   const [dateLabel,setDateLabel]         = useState("");
   const [archiveDate,setArchiveDate]     = useState(null);
@@ -401,235 +774,289 @@ export default function App() {
   const [toasts,setToasts]               = useState([]);
   const [shaking,setShaking]             = useState(false);
   const [modal,setModal]                 = useState(null);
-  const [lightMode,setLightMode]         = useState(false);
   const [hardMode,setHardMode]           = useState(false);
   const [stats,setStats]                 = useState({played:0,wins:0,streak:0,maxStreak:0,dist:{1:0,2:0,3:0,4:0,5:0,6:0}});
   const [streakPulse,setStreakPulse]     = useState(false);
-  const guessesRef = useRef(guesses);
-  useEffect(()=>{guessesRef.current=guesses;},[guesses]);
-  const countdown = useCountdown();
 
-  // postMessage altezza iframe → WordPress
-  useEffect(()=>{
-    function send(){window.parent?.postMessage({type:"wordle-height",height:document.body.scrollHeight},"*");}
+  const guessesRef  = useRef(guesses);
+  const gameOverRef = useRef(gameOver);
+  const revealRef   = useRef(revealingRow);
+  const inputRef    = useRef(null);
+  const inputFocusedRef = useRef(false);
+
+  useEffect(() => { guessesRef.current  = guesses;      }, [guesses]);
+  useEffect(() => { gameOverRef.current = gameOver;     }, [gameOver]);
+  useEffect(() => { revealRef.current   = revealingRow; }, [revealingRow]);
+
+  // postMessage altezza iframe WordPress
+  useEffect(() => {
+    function send() { window.parent?.postMessage({type:"wordle-height",height:document.body.scrollHeight},"*"); }
     send();
-    const ro=new ResizeObserver(send);
+    const ro = new ResizeObserver(send);
     ro.observe(document.body);
-    return()=>ro.disconnect();
-  },[]);
+    return () => ro.disconnect();
+  }, []);
 
-  // Init
-  useEffect(()=>{
-    if(!localStorage.getItem(RESET_FLAG)){
-      Object.keys(localStorage).filter(k=>k.startsWith("wi_")||k.startsWith("wi2_")).forEach(k=>localStorage.removeItem(k));
-      localStorage.setItem(RESET_FLAG,"1");
-    }
-    try{const s=JSON.parse(localStorage.getItem(LS+"stats")||"null");if(s)setStats(s);}catch{}
+  // Init per questa modalità
+  useEffect(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem(LS+"stats")||"null");
+      if (s) {
+        const streak = resolveStreak(s, wordLen);
+        setStats({...s, streak});
+      } else {
+        setStats({played:0,wins:0,streak:0,maxStreak:0,dist:{1:0,2:0,3:0,4:0,5:0,6:0}});
+      }
+    } catch {}
     setHardMode(localStorage.getItem(LS+"hard")==="1");
-    setLightMode(localStorage.getItem(LS+"light")==="1");
-    if(!localStorage.getItem(LS+"seen_tutorial")){setModal("tutorial");localStorage.setItem(LS+"seen_tutorial","1");}
-  },[]);
+    if (!localStorage.getItem(LS+"seen_tutorial")) {
+      setModal("tutorial");
+      localStorage.setItem(LS+"seen_tutorial","1");
+    }
+  }, [wordLen, LS]);
 
-  // Salva draft corrente
-  useEffect(()=>{
-    if(!target||gameOver)return;
-    const seed=seedFromDate(archiveDate||new Date());
-    localStorage.setItem(LS+"draft_"+seed,current);
-  },[current,target,gameOver,archiveDate]);
+  // Salva draft
+  useEffect(() => {
+    if (!target||gameOver) return;
+    localStorage.setItem(LS+"draft_"+seedFromDate(archiveDate||new Date()), current);
+  }, [current, target, gameOver, archiveDate, LS]);
 
   // Carica partita
-  const loadGame=useCallback((date)=>{
-    const seed=seedFromDate(date);
-    setTarget(getWordleWord(seed));
+  const loadGame = useCallback((date) => {
+    const seed = seedFromDate(date);
+    setTarget(getWord(seed, wordLen));
     setDateLabel(formatDate(date));
-    setRevealingRow(null);setRevealedCells(0);setBounceRow(false);
-    try{
-      const saved=JSON.parse(localStorage.getItem(LS+"game_"+seed)||"null");
-      if(saved?.guesses?.length>0){
-        setGuesses(saved.guesses);setWon(saved.won||false);setGameOver(saved.gameOver||false);setCurrent("");
+    setRevealingRow(null); setRevealedCells(0); setBounceRow(false);
+    try {
+      const saved = JSON.parse(localStorage.getItem(LS+"game_"+seed)||"null");
+      if (saved?.guesses?.length > 0) {
+        setGuesses(saved.guesses); setWon(saved.won||false); setGameOver(saved.gameOver||false); setCurrent("");
       } else {
-        setGuesses([]);setWon(false);setGameOver(false);
+        setGuesses([]); setWon(false); setGameOver(false);
         setCurrent(localStorage.getItem(LS+"draft_"+seed)||"");
       }
-    }catch{setGuesses([]);setWon(false);setGameOver(false);setCurrent("");}
-  },[]);
+    } catch { setGuesses([]); setWon(false); setGameOver(false); setCurrent(""); }
+  }, [wordLen, LS]);
 
-  useEffect(()=>{loadGame(archiveDate||new Date());},[archiveDate,loadGame]);
+  useEffect(() => { loadGame(archiveDate||new Date()); }, [archiveDate, loadGame]);
 
-  useEffect(()=>{
-    if(!target)return;
-    const seed=seedFromDate(archiveDate||new Date());
-    localStorage.setItem(LS+"game_"+seed,JSON.stringify({guesses,won,gameOver}));
-  },[guesses,won,gameOver,target,archiveDate]);
+  useEffect(() => {
+    if (!target) return;
+    localStorage.setItem(LS+"game_"+seedFromDate(archiveDate||new Date()), JSON.stringify({guesses,won,gameOver}));
+  }, [guesses, won, gameOver, target, archiveDate, LS]);
 
-  // Toast
-  const toast=useCallback((msg,dur=2000)=>{
-    const id=Date.now()+Math.random();
-    setToasts(t=>[{id,msg},...t]);
-    setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),dur);
-  },[]);
+  const toast = useCallback((msg, dur=2000) => {
+    const id = Date.now()+Math.random();
+    setToasts(t => [{id,msg},...t]);
+    setTimeout(() => setToasts(t => t.filter(x=>x.id!==id)), dur);
+  }, []);
 
-  // Lettera stati
-  const letterStates=(()=>{
-    const map={};
-    const all=[...guesses,...(revealingRow?[revealingRow]:[])];
-    for(const g of all){
-      if(!g.result)continue;
-      g.result.forEach((r,i)=>{
-        const l=g.word[i],prev=map[l];
-        if(prev==="correct")return;
-        if(r==="correct"||!prev||(r==="present"&&prev==="absent"))map[l]=r;
+  const letterStates = (() => {
+    const map = {};
+    const all = [...guesses, ...(revealingRow?[revealingRow]:[])];
+    for (const g of all) {
+      if (!g.result) continue;
+      g.result.forEach((r,i) => {
+        const l=g.word[i], prev=map[l];
+        if (prev==="correct") return;
+        if (r==="correct"||!prev||(r==="present"&&prev==="absent")) map[l]=r;
       });
     }
     return map;
   })();
 
-  // Rivelazione cella per cella
-  function revealSequentially(newGuess,onDone){
-    setRevealingRow(newGuess);setRevealedCells(0);
-    let col=0;
-    const iv=setInterval(()=>{
-      col++;setRevealedCells(col);
-      if(col>=5){clearInterval(iv);setTimeout(()=>{setRevealingRow(null);setRevealedCells(0);onDone();},120);}
-    },280);
+  function revealSequentially(newGuess, onDone) {
+    setRevealingRow(newGuess); setRevealedCells(0);
+    let col = 0;
+    const iv = setInterval(() => {
+      col++; setRevealedCells(col);
+      if (col >= wordLen) { clearInterval(iv); setTimeout(() => { setRevealingRow(null); setRevealedCells(0); onDone(); }, 120); }
+    }, 280);
   }
 
-  // Submit
-  const submitGuess=useCallback(()=>{
-    if(gameOver||revealingRow)return;
-    const norm=current.toUpperCase().replace(/[^A-Z]/g,"");
-    if(norm.length!==5){toast("La parola deve avere 5 lettere");setShaking(true);setTimeout(()=>setShaking(false),400);return;}
-    if(navigator.vibrate)navigator.vibrate(30);
-    if(hardMode&&guessesRef.current.length>0){
-      const last=guessesRef.current[guessesRef.current.length-1];
-      for(let i=0;i<5;i++){
-        if(last.result[i]==="correct"&&norm[i]!==last.word[i]){toast(`La ${i+1}ª lettera deve essere ${last.word[i]}`);setShaking(true);setTimeout(()=>setShaking(false),400);return;}
-      }
-      const pn=last.word.split("").filter((_,i)=>last.result[i]==="present");
-      for(const l of pn){if(!norm.includes(l)){toast(`La parola deve contenere ${l}`);setShaking(true);setTimeout(()=>setShaking(false),400);return;}}
+  const submitGuess = useCallback(() => {
+    if (gameOverRef.current || revealRef.current) return;
+    const norm = current.toUpperCase().replace(/[^A-Z]/g,"");
+    if (norm.length !== wordLen) {
+      toast(`La parola deve avere ${wordLen} lettere`);
+      setShaking(true); setTimeout(()=>setShaking(false),400); return;
     }
-    const result=evaluate(norm,target);
-    const newGuess={word:norm,result};
-    const attemptNum=guessesRef.current.length+1;
+    if (navigator.vibrate) navigator.vibrate(30);
+    if (hardMode && guessesRef.current.length > 0) {
+      const last = guessesRef.current[guessesRef.current.length-1];
+      for (let i=0;i<wordLen;i++) {
+        if (last.result[i]==="correct"&&norm[i]!==last.word[i]) {
+          toast(`La ${i+1}ª lettera deve essere ${last.word[i]}`);
+          setShaking(true); setTimeout(()=>setShaking(false),400); return;
+        }
+      }
+      for (const l of last.word.split("").filter((_,i)=>last.result[i]==="present")) {
+        if (!norm.includes(l)) { toast(`La parola deve contenere ${l}`); setShaking(true); setTimeout(()=>setShaking(false),400); return; }
+      }
+    }
+    const result = evaluate(norm, target);
+    const newGuess = {word:norm, result};
+    const attemptNum = guessesRef.current.length+1;
     setCurrent("");
     localStorage.removeItem(LS+"draft_"+seedFromDate(archiveDate||new Date()));
-    revealSequentially(newGuess,()=>{
-      setGuesses(prev=>{
-        const next=[...prev,newGuess];
-        const isWin=result.every(r=>r==="correct");
-        const isLose=!isWin&&next.length>=MAX_GUESSES;
-        if(isWin){
-          setWon(true);setGameOver(true);
+    revealSequentially(newGuess, () => {
+      setGuesses(prev => {
+        const next = [...prev, newGuess];
+        const isWin  = result.every(r=>r==="correct");
+        const isLose = !isWin && next.length >= MAX_GUESSES;
+        if (isWin) {
+          setWon(true); setGameOver(true);
           setTimeout(()=>{setBounceRow(true);setTimeout(()=>setBounceRow(false),1600);},80);
           setTimeout(()=>spawnConfetti(),250);
-          if(navigator.vibrate)navigator.vibrate([50,30,50,30,100]);
+          if (navigator.vibrate) navigator.vibrate([50,30,50,30,100]);
           toast(WIN_MSGS[Math.min(attemptNum-1,WIN_MSGS.length-1)],2500);
-          updateStats(true,attemptNum);
+          updateStats(true, attemptNum, !!archiveDate);
           setTimeout(()=>setModal("end"),2200);
-        } else if(isLose){
+        } else if (isLose) {
           setGameOver(true);
-          if(navigator.vibrate)navigator.vibrate([100,50,100]);
+          if (navigator.vibrate) navigator.vibrate([100,50,100]);
           toast(target,3500);
-          updateStats(false,0);
+          updateStats(false, 0, !!archiveDate);
           setTimeout(()=>setModal("end"),3200);
         }
         return next;
       });
     });
-  },[gameOver,revealingRow,current,target,hardMode,archiveDate,toast]);
+  }, [current, target, hardMode, archiveDate, toast, wordLen, LS]);
 
-  function updateStats(win,guessCount){
-    setStats(prev=>{
-      const d={...prev.dist};
-      if(win)d[guessCount]=(d[guessCount]||0)+1;
-      const streak=win?prev.streak+1:0;
-      const maxStreak=Math.max(prev.maxStreak,streak);
-      const next={played:prev.played+1,wins:prev.wins+(win?1:0),streak,maxStreak,dist:d};
-      localStorage.setItem(LS+"stats",JSON.stringify(next));
-      if(win&&streak>1){setStreakPulse(true);setTimeout(()=>setStreakPulse(false),500);}
+  function updateStats(win, guessCount, isArchive) {
+    setStats(prev => {
+      const d = {...prev.dist};
+      if (win) d[guessCount] = (d[guessCount]||0)+1;
+      const streak = isArchive ? prev.streak : computeStreak(wordLen);
+      const maxStreak = Math.max(prev.maxStreak, streak);
+      const lastWonDate = (win && !isArchive)
+        ? new Date().toISOString().split("T")[0]
+        : (prev.lastWonDate || null);
+      const streakSnapshot = (!isArchive) ? streak : (prev.streakSnapshot || 0);
+      const next = {
+        played: prev.played+1,
+        wins: prev.wins+(win?1:0),
+        streak, maxStreak, dist: d,
+        lastWonDate, streakSnapshot
+      };
+      localStorage.setItem(LS+"stats", JSON.stringify(next));
+      if (!isArchive && streak > 1) { setStreakPulse(true); setTimeout(()=>setStreakPulse(false),500); }
       return next;
     });
   }
 
-  const handleKey=useCallback((k)=>{
-    if(gameOver||revealingRow)return;
-    if(k==="⌫"||k==="Backspace"){setCurrent(c=>c.slice(0,-1));}
-    else if(k==="INVIO"||k==="Enter"){submitGuess();}
-    else if(/^[A-Za-z]$/.test(k)&&current.length<5){setCurrent(c=>c+k.toUpperCase());}
-  },[gameOver,revealingRow,current,submitGuess]);
+  const handleKey = useCallback((k) => {
+    if (gameOverRef.current || revealRef.current) return;
+    if (k==="⌫"||k==="Backspace") setCurrent(c=>c.slice(0,-1));
+    else if (k==="INVIO"||k==="Enter") submitGuess();
+    else if (/^[A-Za-zàáèéìíòóùú]$/i.test(k) && current.length<wordLen) {
+      const upper = k.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Z]/g,"");
+      if (upper) setCurrent(c=>c+upper);
+    }
+  }, [current, submitGuess, wordLen]);
 
-  useEffect(()=>{
-    const fn=(e)=>handleKey(e.key==="Backspace"?"⌫":e.key==="Enter"?"INVIO":e.key);
-    window.addEventListener("keydown",fn);
-    return()=>window.removeEventListener("keydown",fn);
-  },[handleKey]);
+  useEffect(() => {
+    const fn = (e) => {
+      if (inputFocusedRef.current) return;
+      if (e.ctrlKey||e.metaKey||e.altKey) return;
+      handleKey(e.key==="Backspace"?"⌫":e.key==="Enter"?"INVIO":e.key);
+    };
+    window.addEventListener("keydown", fn);
+    return () => window.removeEventListener("keydown", fn);
+  }, [handleKey]);
 
-  function buildShare(){
-    const header=`🇮🇹 Wordle Italiano — ${dateLabel}`;
-    const rows=guesses.map(g=>g.result.map(r=>r==="correct"?"🟩":r==="present"?"🟨":"⬛").join(""));
-    const score=won?`${guesses.length}/${MAX_GUESSES}`:`X/${MAX_GUESSES}`;
-    return{header,rows,score,plainText:header+"\n"+rows.join("\n")+"\n"+score};
-  }
+  const handleNativeKeyDown = useCallback((e) => {
+    e.stopPropagation();
+    if (e.ctrlKey||e.metaKey||e.altKey) return;
+    if (e.key === "Backspace") { e.preventDefault(); handleKey("⌫"); }
+    else if (e.key === "Enter") { e.preventDefault(); handleKey("INVIO"); }
+    else if (e.key && e.key.length === 1) { e.preventDefault(); handleKey(e.key); }
+    e.target.value = "";
+  }, [handleKey]);
 
-  function playRandom(){
-    const offset=1+Math.floor(Math.random()*29);
-    const d=new Date();d.setDate(d.getDate()-offset);
-    setArchiveDate(d);setModal(null);
-  }
+  const buildShare = useCallback(() => {
+    const header = `Wordle Italiano ${wordLen}L — ${dateLabel}`;
+    const rows = guesses.map(g=>g.result.map(r=>r==="correct"?"🟩":r==="present"?"🟨":"⬛").join(""));
+    const score = won ? `${guesses.length}/${MAX_GUESSES}` : `X/${MAX_GUESSES}`;
+    return {header, rows, score, plainText:`🇮🇹 ${header}\n${rows.join("\n")}\n${score}`};
+  }, [guesses, won, dateLabel, wordLen]);
 
-  function getArchiveStatus(d){
-    try{
-      const saved=JSON.parse(localStorage.getItem(LS+"game_"+seedFromDate(d))||"null");
-      if(!saved?.guesses?.length)return null;
-      return saved.won?"w":"l";
-    }catch{return null;}
-  }
+  const playRandom = useCallback(() => {
+    const today = new Date();
+    const unplayed = [];
+    for (let i = 1; i <= 30; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const seed = seedFromDate(d);
+      try {
+        const saved = JSON.parse(localStorage.getItem(LS+"game_"+seed)||"null");
+        if (!saved?.guesses?.length) unplayed.push(d);
+      } catch { unplayed.push(d); }
+    }
+    const pool = unplayed.length > 0 ? unplayed : (() => {
+      const all = [];
+      for (let i = 1; i <= 30; i++) {
+        const d = new Date(today); d.setDate(today.getDate()-i); all.push(d);
+      }
+      return all;
+    })();
+    const d = pool[Math.floor(Math.random()*pool.length)];
+    setArchiveDate(d); setModal(null);
+  }, [LS]);
+
+  const getArchiveStatus = useCallback((d) => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(LS+"game_"+seedFromDate(d))||"null");
+      if (!saved?.guesses?.length) return null;
+      return saved.won ? "w" : "l";
+    } catch { return null; }
+  }, [LS]);
 
   // Render griglia
-  function renderRows(){
-    const rows=[];
-    const winRow=won?guesses.length-1:-1;
-    for(let r=0;r<MAX_GUESSES;r++){
-      if(r<guesses.length){
-        const g=guesses[r];
-        const isBounce=r===winRow&&bounceRow;
+  const sizeClass = cellSizeClass(wordLen);
+  function renderRows() {
+    const rows = [];
+    const winRow = won ? guesses.length-1 : -1;
+    const currentRowIdx = gameOver ? -1 : guesses.length;
+
+    for (let r=0; r<MAX_GUESSES; r++) {
+      if (r < guesses.length) {
+        const g = guesses[r];
+        const isBounce = r===winRow && bounceRow;
         rows.push(
           <div className="board-row" key={r}>
-            {g.word.split("").map((l,i)=>(
-              <div key={i} className={`cell revealed${isBounce?" bounce":""}`}
-                style={{"--status":statusColor(g.result[i]),...(isBounce?{"--delay":`${i*80}ms`}:{})}}>
-                {l}
-              </div>
+            {g.word.split("").map((l,i) => (
+              <div key={i} className={`cell${sizeClass} revealed${isBounce?" bounce":""}`}
+                style={{"--status":statusColor(g.result[i]),...(isBounce?{"--delay":`${i*80}ms`}:{})}}>{l}</div>
             ))}
           </div>
         );
-      } else if(revealingRow&&r===guesses.length){
+      } else if (revealingRow && r===guesses.length) {
         rows.push(
           <div className="board-row" key={r}>
-            {revealingRow.word.split("").map((l,i)=>{
-              const rev=i<revealedCells;
-              return(
-                <div key={i} className={`cell${rev?" revealed":" filled"}`}
-                  style={rev?{"--status":statusColor(revealingRow.result[i])}:{}}>
-                  {l}
-                </div>
+            {revealingRow.word.split("").map((l,i) => {
+              const rev = i < revealedCells;
+              return (
+                <div key={i} className={`cell${sizeClass}${rev?" revealed":" filled"}`}
+                  style={rev?{"--status":statusColor(revealingRow.result[i])}:{}}>{l}</div>
               );
             })}
           </div>
         );
-      } else if(!gameOver&&!revealingRow&&r===guesses.length){
-        const letters=current.padEnd(5," ").split("");
+      } else if (r === currentRowIdx) {
+        const letters = current.padEnd(wordLen," ").split("");
         rows.push(
           <div className="board-row" key={r}>
-            {letters.map((l,i)=>(
-              <div key={i} className={`cell${l!==" "?" filled":""}`}>{l===" "?"":l}</div>
+            {letters.map((l,i) => (
+              <div key={i} className={`cell${sizeClass} current-row${l!==" "?" filled":""}`}>{l===" "?"":l}</div>
             ))}
           </div>
         );
       } else {
         rows.push(
           <div className="board-row" key={r}>
-            {Array(5).fill("").map((_,i)=><div key={i} className="cell"></div>)}
+            {Array(wordLen).fill("").map((_,i) => <div key={i} className={`cell${sizeClass}`}></div>)}
           </div>
         );
       }
@@ -637,193 +1064,153 @@ export default function App() {
     return rows;
   }
 
-  // Modali
-  function ModalTutorial(){
-    return(
-      <div className="overlay" onClick={()=>setModal(null)}>
-        <div className="modal" onClick={e=>e.stopPropagation()}>
-          <h2>Come si gioca</h2>
-          <p>Indovina la parola in 6 tentativi.<br/>Ogni tentativo deve essere di 5 lettere.</p>
-          <div className="tutorial-examples">
-            <p style={{fontSize:"12px",color:"var(--muted)"}}>🟩 Lettera corretta nella posizione giusta</p>
-            <div className="tutorial-row">
-              {["P","I","A","N","O"].map((l,i)=>(
-                <div key={i} className={`tutorial-cell${i===0?" correct":""}`}>{l}</div>
-              ))}
-            </div>
-            <p style={{fontSize:"12px",color:"var(--muted)"}}>🟨 Lettera presente ma in posizione sbagliata</p>
-            <div className="tutorial-row">
-              {["F","I","U","M","E"].map((l,i)=>(
-                <div key={i} className={`tutorial-cell${i===2?" present":""}`}>{l}</div>
-              ))}
-            </div>
-            <p style={{fontSize:"12px",color:"var(--muted)"}}>⬛ Lettera non presente</p>
-            <div className="tutorial-row">
-              {["V","E","N","T","O"].map((l,i)=>(
-                <div key={i} className={`tutorial-cell${i===3?" absent":""}`}>{l}</div>
-              ))}
-            </div>
-          </div>
-          <p>Una nuova parola ogni giorno!<br/>I tentativi vengono salvati automaticamente.</p>
-          <button className="btn btn-primary" onClick={()=>setModal(null)}>Inizia!</button>
-        </div>
-      </div>
-    );
-  }
+  const attemptText = gameOver
+    ? (won ? `Indovinata in ${guesses.length}/${MAX_GUESSES}` : "Non indovinata")
+    : revealingRow ? "" : `${guesses.length}/${MAX_GUESSES}`;
 
-  function ModalStats(){
-    const maxBar=Math.max(...Object.values(stats.dist),1);
-    return(
-      <div className="overlay" onClick={()=>setModal(null)}>
-        <div className="modal" onClick={e=>e.stopPropagation()}>
-          <h2>Statistiche</h2>
-          <div className="stats-grid">
-            <div className="stat-box"><span className="stat-num">{stats.played}</span><span className="stat-label">Partite</span></div>
-            <div className="stat-box"><span className="stat-num">{stats.played?Math.round(stats.wins/stats.played*100):0}%</span><span className="stat-label">Vittorie</span></div>
-            <div className="stat-box"><span className="stat-num">{stats.streak}</span><span className="stat-label">Serie</span></div>
-            <div className="stat-box"><span className="stat-num">{stats.maxStreak}</span><span className="stat-label">Record</span></div>
-          </div>
-          <div className="dist-wrap">
-            {[1,2,3,4,5,6].map(n=>(
-              <div className="dist-row" key={n}>
-                <span className="dist-num">{n}</span>
-                <div className={`dist-bar${guesses.length===n&&won?" hi":""}`}
-                  style={{width:`${Math.max(24,(stats.dist[n]||0)/maxBar*160)}px`}}>
-                  {stats.dist[n]||0}
-                </div>
-              </div>
-            ))}
-          </div>
-          <button className="btn btn-secondary" onClick={()=>setModal(null)}>Chiudi</button>
-        </div>
-      </div>
-    );
-  }
+  const share = buildShare();
 
-  function ModalEnd(){
-    const [copied,setCopied]=useState(false);
-    const share=buildShare();
-    const showCountdown=!archiveDate||isToday(archiveDate);
-    return(
-      <div className="overlay" onClick={()=>setModal(null)}>
-        <div className="modal" onClick={e=>e.stopPropagation()}>
-          <h2>{won?"Hai vinto!":"Peccato"}</h2>
-          {!won&&<><p>La parola era:</p><div className="modal-word">{target}</div></>}
-          <div className="share-box">
-            <div className="share-header">{share.header}</div>
-            <div className="share-grid">{share.rows.map((row,i)=><div key={i}>{row}</div>)}</div>
-            <div className="share-score">{share.score}</div>
-          </div>
-          {showCountdown&&(
-            <div className="countdown-wrap">
-              <span className="countdown-label">Prossima parola tra</span>
-              <span className="countdown-time">{countdown}</span>
-            </div>
-          )}
-          <div className="btn-row">
-            <button className="btn btn-primary" onClick={()=>{
-              navigator.clipboard.writeText(share.plainText).then(()=>setCopied(true));
-              setTimeout(()=>setCopied(false),2000);
-            }}>{copied?"✓ Copiato!":"Condividi"}</button>
-            <button className="btn btn-secondary" onClick={()=>setModal("stats")}>Statistiche</button>
-          </div>
-          <div className="btn-row">
-            <button className="btn btn-secondary" onClick={playRandom}>Gioca ancora</button>
-            <button className="btn btn-secondary" onClick={()=>setModal("archive")}>Archivio</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  function ModalArchive(){
-    const today=new Date();
-    const chips=Array.from({length:30},(_,i)=>{
-      const d=new Date(today);d.setDate(today.getDate()-i);
-      const label=i===0?"Oggi":d.toLocaleDateString("it-IT",{day:"2-digit",month:"2-digit"});
-      return{d,label,isToday:i===0,status:getArchiveStatus(d)};
-    });
-    return(
-      <div className="overlay" onClick={()=>setModal(null)}>
-        <div className="modal" onClick={e=>e.stopPropagation()}>
-          <h2>Archivio</h2>
-          <p>Gioca le sfide degli ultimi 30 giorni</p>
-          <div className="archive-wrap">
-            {chips.map(({d,label,isToday:it,status},i)=>{
-              let cls="chip";
-              if(it)cls+=" today";
-              else if(status==="w")cls+=" done-w";
-              else if(status==="l")cls+=" done-l";
-              return(
-                <button key={i} className={cls}
-                  onClick={()=>{setArchiveDate(it?null:d);setModal(null);}}>
-                  {status&&<span className="chip-dot"></span>}
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-          <div className="archive-legend">
-            <span><span style={{color:"var(--correct)"}}>●</span> vinta</span>
-            <span><span style={{color:"var(--muted)"}}>●</span> persa</span>
-          </div>
-          <button className="btn btn-secondary" onClick={()=>setModal(null)}>Chiudi</button>
-        </div>
-      </div>
-    );
-  }
-
-  const attemptText=gameOver
-    ?(won?`Indovinata in ${guesses.length}/${MAX_GUESSES}`:"Non indovinata")
-    :revealingRow?"":`${guesses.length}/${MAX_GUESSES}`;
-
-  return(
+  return (
     <>
-      <style>{STYLES}</style>
-      <div className={`wordle-root${lightMode?" light":""}`}>
-
-        <header className="header">
-          <div className="header-left">
-            <button className="icon-btn" onClick={()=>setModal("tutorial")} title="Come si gioca">?</button>
-          </div>
-          <div className="header-center">
-            <span className="header-title">🇮🇹 WORDLE ITALIANO</span>
-            <span className="header-date">{dateLabel}</span>
-          </div>
-          <div className="header-right">
-            {stats.streak>=2&&(
-              <div className={`streak-badge${streakPulse?" pulse":""}`}>🔥{stats.streak}</div>
-            )}
-            <button className="icon-btn" onClick={()=>{setLightMode(n=>!n);localStorage.setItem(LS+"light",!lightMode?"1":"0");}} title="Tema">
-              {lightMode?"🌙":"☀️"}
-            </button>
-            <button className="icon-btn" onClick={()=>{
+      <header className="header">
+        <div className="header-left">
+          <button className="icon-btn" onClick={()=>setModal("tutorial")} title="Come si gioca">?</button>
+        </div>
+        <div className="header-center">
+          <span className="header-title">WORDLE ITALIANO</span>
+          <span className="header-mode">{modeLabel}</span>
+          <span className="header-date">{dateLabel}</span>
+        </div>
+        <div className="header-right">
+          {stats.streak>=2 && (
+            <div className={`streak-badge${streakPulse?" pulse":""}`}>🔥{stats.streak}</div>
+          )}
+          <button className="icon-btn" title="Tema"
+            onClick={()=>{setLightMode(n=>{const v=!n;localStorage.setItem("wml_light",v?"1":"0");return v;});}}>
+            {lightMode?"🌙":"☀️"}
+          </button>
+          <button className="icon-btn" title="Modalità difficile"
+            style={{color:hardMode?"#f5a000":"var(--muted)"}}
+            onClick={()=>{
               if(guesses.length>0){toast("Impossibile cambiare durante la partita");return;}
-              const n=!hardMode;setHardMode(n);localStorage.setItem(LS+"hard",n?"1":"0");
-              toast(n?"Modalità difficile 🔥":"Modalità normale");
-            }} title="Modalità difficile" style={{color:hardMode?"#f5a000":"var(--muted)"}}>
-              {hardMode?"★":"☆"}
-            </button>
-            <button className="icon-btn" onClick={()=>setModal("stats")} title="Statistiche" style={{fontSize:"18px",fontWeight:"700"}}>≡</button>
-            <button className="icon-btn" onClick={()=>setModal("archive")} title="Archivio" style={{fontSize:"16px"}}>◷</button>
-          </div>
-        </header>
-
-        <div className="toast-container">
-          {toasts.map(t=><div key={t.id} className="toast">{t.msg}</div>)}
+              setHardMode(n=>{const v=!n;localStorage.setItem(LS+"hard",v?"1":"0");toast(v?"Modalità difficile 🔥":"Modalità normale");return v;});
+            }}>
+            {hardMode?"★":"☆"}
+          </button>
+          <button className="icon-btn" title="Statistiche" style={{fontSize:"18px",fontWeight:"700"}}
+            onClick={()=>setModal("stats")}>≡</button>
+          <button className="icon-btn" title="Archivio" style={{fontSize:"15px"}}
+            onClick={()=>setModal("archive")}>◷</button>
+          <button className="icon-btn" title="Cambia modalità" style={{fontSize:"15px"}}
+            onClick={onChangeMode}>⚙</button>
         </div>
+      </header>
 
-        <div className="game-area">
-          <div className={`board${shaking?" shake":""}`}>{renderRows()}</div>
-          <div className="attempt-counter">{attemptText}</div>
-          <Keyboard onKey={handleKey} letterStates={letterStates}/>
-        </div>
-
+      <div className="toast-container">
+        {toasts.map(t => <div key={t.id} className="toast">{t.msg}</div>)}
       </div>
-      {modal==="tutorial"&&<ModalTutorial/>}
-      {modal==="stats"&&<ModalStats/>}
-      {modal==="end"&&<ModalEnd/>}
-      {modal==="archive"&&<ModalArchive/>}
+
+      <div className="game-area">
+        <input
+          ref={inputRef}
+          style={{
+            position:"absolute", opacity:0, width:1, height:1,
+            top:0, left:0, pointerEvents:"none",
+            fontSize:16,
+          }}
+          type="text"
+          inputMode="text"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="characters"
+          spellCheck="false"
+          readOnly={gameOver || !!modal}
+          onFocus={() => { inputFocusedRef.current = true; }}
+          onBlur={() => { inputFocusedRef.current = false; }}
+          onKeyDown={handleNativeKeyDown}
+          aria-hidden="true"
+        />
+        <div
+          className={`board${shaking?" shake":""}`}
+          onClick={() => { if (!gameOver && !modal) inputRef.current?.focus(); }}
+        >
+          {renderRows()}
+        </div>
+        <div className="attempt-counter">{attemptText}</div>
+        <Keyboard onKey={handleKey} letterStates={letterStates}/>
+      </div>
+
+      {modal==="tutorial" && <ModalTutorial onClose={()=>setModal(null)} wordLen={wordLen}/>}
+      {modal==="stats"    && <ModalStats stats={stats} guesses={guesses} won={won} onClose={()=>setModal(null)}/>}
+      {modal==="end"      && (
+        <ModalEnd
+          won={won} target={target} guesses={guesses}
+          dateLabel={dateLabel} archiveDate={archiveDate}
+          share={share}
+          onClose={()=>setModal(null)}
+          onStats={()=>setModal("stats")}
+          onRandom={playRandom}
+          onArchive={()=>setModal("archive")}
+        />
+      )}
+      {modal==="archive" && (
+        <ModalArchive
+          onSelect={(d)=>{setArchiveDate(d);setModal(null);}}
+          onClose={()=>setModal(null)}
+          getStatus={getArchiveStatus}
+        />
+      )}
     </>
   );
 }
+
+// ─── APP ROOT ────────────────────────────────────────────────────────────────
+export default function App() {
+  const [wordLen, setWordLen] = useState(null);   // null = mostra selezione
+  const [lightMode, setLightMode] = useState(false);
+  const [showModeSelect, setShowModeSelect] = useState(false);
+
+  useEffect(() => {
+    if (!localStorage.getItem(RESET_FLAG)) {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith("wml_") || k.startsWith("wi_") || k.startsWith("wi2_"))
+        .forEach(k => localStorage.removeItem(k));
+      localStorage.setItem(RESET_FLAG, "1");
+    }
+    setLightMode(localStorage.getItem("wml_light") === "1");
+    const saved = localStorage.getItem("wml_lastMode");
+    if (saved) setWordLen(Number(saved));
+  }, []);
+
+  function selectMode(len) {
+    setWordLen(len);
+    setShowModeSelect(false);
+    localStorage.setItem("wml_lastMode", String(len));
+  }
+
+  return (
+    <>
+      <style>{STYLES}</style>
+      <div className={`wordle-root${lightMode?" light":""}`}>
+        {(!wordLen || showModeSelect) && (
+          <ModalModeSelect
+            currentMode={wordLen}
+            onSelect={selectMode}
+            lightMode={lightMode}
+            onToggleLight={() => setLightMode(n => { const v=!n; localStorage.setItem("wml_light",v?"1":"0"); return v; })}
+          />
+        )}
+        {wordLen && (
+          <GameCore
+            key={wordLen}
+            wordLen={wordLen}
+            lightMode={lightMode}
+            setLightMode={setLightMode}
+            onChangeMode={() => setShowModeSelect(true)}
+          />
+        )}
+      </div>
+    </>
+  );
+}
+
